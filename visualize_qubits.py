@@ -1,15 +1,9 @@
 import numpy as np
-from typing import List, Union
+from typing import List
 import matplotlib.pyplot as plt
 from matplotlib.quiver import Quiver
-import qiskit
 from numpy.typing import NDArray
-from qiskit.quantum_info import Statevector, DensityMatrix, partial_trace, entropy
-from qiskit_aer import Aer
-from qiskit.visualization import plot_bloch_vector
-from functools import partial
-from matplotlib.animation import FuncAnimation
-import timeit
+from qiskit.quantum_info import Statevector
 from scipy.spatial.transform import Rotation as R, Slerp
 from dataclasses import dataclass, fields
 from copy import deepcopy
