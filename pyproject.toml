@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quantum_visualization"
+version = "0.1.0"
+description = "Visualize Qubits"
+authors = [
+  {name="Quinn Thompson", email="nan@nan.com"}
+]
+
+[tool.setuptools.packages.find]
+include = ["gui*", "gui_backend*"]
