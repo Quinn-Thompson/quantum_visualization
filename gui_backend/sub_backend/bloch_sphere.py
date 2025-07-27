@@ -360,6 +360,14 @@ class PerQubitVisualization():
         ))
         
     def next_animation_block(self, to_transition_index: int) -> bool:
+        """Jump to the next block for animation.
+
+        Args:
+            to_transition_index: The index of the animation block to jump to.
+
+        Returns:
+            Whether it was able to jump to this index.
+        """
         if 0 > to_transition_index > len(self._animation_blocks):
             return False
         else:

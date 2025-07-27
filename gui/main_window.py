@@ -1,33 +1,31 @@
+"""The main window for the gui."""
 from PyQt6 import QtWidgets
 from PyQt6 import QtCore
 from gui.helpers import global_budget_window_style
 from gui.sub_widgets.bloch_window import BlochWindow
 from gui.sub_widgets.entanglement_window import EntanglementWindow
 from gui.sub_widgets.animation_control import AnimationControl
-from typing import Dict
 from dataclasses import dataclass
 
-
-def start_application():
+def start_application() -> QtWidgets.QApplication:
+    """The application object which is used to start the window thread."""
     return QtWidgets.QApplication([])  
 
 @dataclass
 class SubWidgets():
+    """The different windows that exist within the main one.
+    """
     bloch_window: BlochWindow
     animation_control: AnimationControl
     entanglement_window: EntanglementWindow
     
 
 class MainWindow(QtWidgets.QMainWindow):
-    """
-    desc:
-        The main widget for the window.
+    """The main widget for the window.
     """
     
-    def __init__(self):
-        """
-        desc:
-            The initialization for the main window.
+    def __init__(self) -> None:
+        """The initialization for the main window.
         """
         super().__init__(parent=None)
         self.setWindowFlag(QtCore.Qt.WindowType.FramelessWindowHint)
@@ -44,7 +42,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.central = self.setCentralWidget(self.central_widget)
         
-    def _init_widgets(self):
+    def _init_widgets(self) -> None:
+        """Initialize th separate sub windows and toolbar.
+        """
         self.root_layoutV = QtWidgets.QVBoxLayout()
         self.root_layoutH = QtWidgets.QHBoxLayout()
         

@@ -1,15 +1,24 @@
+"""The window for displaying the entanglement matrix."""
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 from PyQt6 import QtWidgets
 from PyQt6 import QtCore
 
 class EntanglementWindowWidgets():
-    def __init__(self):
+    """The widgets for the entanglement window.
+    """
+    def __init__(self) -> None:
+        """Initialize each widget within the window.
+        """
         self.figure, self.axis = plt.subplots(figsize=(14, 8))
         self.entanglement_visual_widget: FigureCanvas = FigureCanvas(self.figure)
 
 class EntanglementWindow(QtWidgets.QFrame):
-    def __init__(self):
+    """The frame for displaying the entanglement matrix.
+    """
+    def __init__(self) -> None:
+        """Initialize the entanglement window.
+        """
         super().__init__()
         self.main_layout = QtWidgets.QGridLayout()
         self.widgets: EntanglementWindowWidgets = EntanglementWindowWidgets()

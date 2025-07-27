@@ -1,3 +1,5 @@
+"""Some helpers that the front end and backend can use."""
+
 background_color = "#1A1A1A"
 
 global_budget_window_style = (

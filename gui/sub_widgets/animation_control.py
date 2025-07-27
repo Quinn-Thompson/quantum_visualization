@@ -1,8 +1,13 @@
+"""The window for controlling the animation."""
 from PyQt6 import QtCore
 from PyQt6 import QtWidgets
 
-class BlochWindowWidgets():
-    def __init__(self):
+class AnimationControlWindowWidgets():
+    """The widgets for the animation control window.
+    """
+    def __init__(self) -> None:
+        """Initialize each widget within the window.
+        """
         self.next_button = QtWidgets.QPushButton()
         self.prev_button = QtWidgets.QPushButton()
         self.play_button = QtWidgets.QPushButton()
@@ -11,10 +16,14 @@ class BlochWindowWidgets():
         self.array_title = QtWidgets.QLabel()
 
 class AnimationControl(QtWidgets.QFrame):
+    """The frame for controlling the animation.
+    """
     def __init__(self) -> None:
+        """Initialize the animation control window.
+        """
         super().__init__()
         self.main_layout = QtWidgets.QGridLayout()
-        self.widgets = BlochWindowWidgets()
+        self.widgets = AnimationControlWindowWidgets()
 
         self.setLayout(self.main_layout)
         self.widgets.next_button.setText("next")

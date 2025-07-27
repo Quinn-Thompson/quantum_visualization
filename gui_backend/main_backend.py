@@ -43,5 +43,5 @@ class QuantumCircuitWindow:
     def animate_circuit(self) -> None:
         """Animate the different displays.
         """
-        self.bloch_backend.animate_bloch_sphere()
+        self.bloch_backend.setup_animation_process()
         

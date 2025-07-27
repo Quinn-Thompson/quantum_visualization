@@ -1,3 +1,4 @@
+"""The wrapper around visualizing the quantum circuit."""
 import numpy as np
 from typing import List, Dict, Optional, Literal
 import matplotlib
@@ -15,18 +16,34 @@ from gui.helpers import background_color
 matplotlib.use("TkAgg")
 
 class VisualizationWrapper():
-    def __init__(self, main_window: MainWindow):
+    """A wrapper that contains the backend for the different visualizations. 
+    """
+    
+    def __init__(self, main_window: MainWindow) -> None:
+        """Initialize the wrapper with info from the main window gui.
+
+        Args:
+            main_window: The main gui window.
+        """
         self.main_window = main_window
         self.layout = main_window.sub_window_widgets.bloch_window
         self._to_update_method = self._run_to_next_block
         self.main_window.sub_window_widgets.animation_control.widgets.next_button.clicked.connect(partial(self.update_method_to_use, "next"))
         self.main_window.sub_window_widgets.animation_control.widgets.prev_button.clicked.connect(partial(self.update_method_to_use, "prev"))
         self.main_window.sub_window_widgets.animation_control.widgets.to_x_block.clicked.connect(partial(self.update_method_to_use, "x"))
-        self.maintained_properties: List[DisplayProperties] = []
-        self.timer = QTimer()
+        self._maintained_properties: List[DisplayProperties] = []
+        # timer must be managed by the wrapper
+        self._timer = QTimer()
     
-    def setup_circuit(self, quantum_circuit: qiskit.QuantumCircuit, frames_per_animation: int, display_properties: Optional[DisplayProperties] = None):
-        self.maintained_properties.append(display_properties)
+    def setup_circuit(self, quantum_circuit: qiskit.QuantumCircuit, frames_per_animation: int, display_properties: Optional[DisplayProperties] = None) -> None:
+        """Setup the initial circuit so the window knows how to structure things.
+
+        Args:
+            quantum_circuit: The initial circuit that will be displayed.
+            frames_per_animation: How many frames to play per animation.
+            display_properties: The properties of the initial display.
+        """
+        self._maintained_properties.append(display_properties)
         self.func_animation = None
         self.frames_per_animation = frames_per_animation
         self.entanglement = EntanglementMatrix(
@@ -39,6 +56,7 @@ class VisualizationWrapper():
         
         num_quantum_registers = len(quantum_circuit.qregs)
         
+        # we use grid spec to seperate registers
         self.main_grid_layout = gridspec.GridSpec(
             int(np.ceil(np.sqrt(num_quantum_registers))), 
             int(np.ceil(np.sqrt(num_quantum_registers))), 
@@ -50,6 +68,8 @@ class VisualizationWrapper():
         self._qubit_subplots: Dict[qiskit.circuit.Qubit, PerQubitVisualization] = {}
         quantum_vector = Statevector.from_instruction(quantum_circuit)
         keep_indices = list(range(len(quantum_circuit.qubits)))
+        
+        # create a sub plot for each qubit depending on the register
         for register_number, quantum_register in enumerate(quantum_circuit.qregs):
             qubit_count = len(list(quantum_register))
             square_length = int(np.ceil(np.sqrt(qubit_count)))
@@ -74,6 +94,11 @@ class VisualizationWrapper():
 
     @property
     def qubit_subplots(self) -> Dict[qiskit.circuit.Qubit, PerQubitVisualization]:
+        """Qubit subplots are private.
+
+        Returns:
+            The qubit sub plots.
+        """
         return self._qubit_subplots
     
     def add_circuit_state(
@@ -81,7 +106,7 @@ class VisualizationWrapper():
         quantum_circuit: qiskit.QuantumCircuit, 
         bloch_properties: DisplayProperties, 
     ):
-        self.maintained_properties.append(bloch_properties)
+        self._maintained_properties.append(bloch_properties)
         quantum_vector = Statevector.from_instruction(quantum_circuit)
         keep_indices = list(range(len(quantum_circuit.qubits)))
         for qubit in quantum_circuit.qubits:
@@ -93,7 +118,9 @@ class VisualizationWrapper():
             )
         self.entanglement.append_block(quantum_circuit, bloch_properties)
 
-    def _update(self):
+    def _update(self) -> None:
+        """Update to the next interpolated visual.
+        """
         interpolation_ratio = self._frame / self.frames_per_animation
         for per_qubit_obj in self._qubit_subplots.values():
             per_qubit_obj.update_plot(interpolation_ratio)
@@ -102,6 +129,14 @@ class VisualizationWrapper():
         self.main_window.sub_window_widgets.entanglement_window.widgets.entanglement_visual_widget.draw_idle()
 
     def _run_to_x_block(self):
+        """Move to some x block.
+
+        Args:
+            block_to_jump_to: The animation block to jump to.
+
+        Returns:
+            Whether it was able to jump to that block.
+        """
         more_animation = False
         which_bloch_to = self.main_window.sub_window_widgets.animation_control.widgets.which_bloch.value()
         for per_qubit_obj in self._qubit_subplots.values():
@@ -110,6 +145,11 @@ class VisualizationWrapper():
         return more_animation 
         
     def _run_to_next_block(self):
+        """Move to next block.
+
+        Returns:
+            Whether it was able to jump to that block.
+        """
         more_animation = False
         for per_qubit_obj in self._qubit_subplots.values():
             more_animation |= per_qubit_obj.to_next_block()
@@ -117,45 +157,60 @@ class VisualizationWrapper():
         return more_animation
 
     def _run_to_previous_block(self):
+        """Move to previous block.
+
+        Returns:
+            Whether it was able to jump to that block.
+        """
         more_animation = False
         for per_qubit_obj in self._qubit_subplots.values():
             more_animation |= per_qubit_obj.to_prev_block()
         self.entanglement.to_prev_block()
         return more_animation 
 
-    def update_method_to_use(self, update_method: Literal["next", "prev"]):
+    def update_method_to_use(self, update_method: Literal["next", "prev", "x"]):
+        """Update which block to jump to.
+
+        Args:
+            update_method: Which process to use to move animation blocks.
+        """
         if update_method == "next":
             print("run to next")
             self._to_update_method = self._run_to_next_block
         elif update_method == "prev":
             print("run to prev")
             self._to_update_method = self._run_to_previous_block   
-        
         elif update_method == "x":
             print("run to x")
             self._to_update_method = self._run_to_x_block   
           
-        self.start_next_block()
-
-    def start_next_block(self):
-        self.timer.start()
+        self._timer.start()
         
-    def update_block_label(self, value):
-        self.main_window.sub_window_widgets.animation_control.widgets.array_title.setText(self.maintained_properties[value].plot_name)
+    def update_block_label(self, slider_value: int) -> None:
+        """Update the slider label to show what block will be moved to.
 
-    def animate_bloch_sphere(self):
+        Args:
+            slider_value: The current value of the slider
+        """
+        self.main_window.sub_window_widgets.animation_control.widgets.array_title.setText(self._maintained_properties[slider_value].plot_name)
+
+    def setup_animation_process(self) -> None:
+        """Create process for animating each display.
+        """
         self.main_window.sub_window_widgets.animation_control.widgets.which_bloch.setMaximum(0)
-        self.main_window.sub_window_widgets.animation_control.widgets.which_bloch.setMaximum(len(self.maintained_properties)-1)
+        self.main_window.sub_window_widgets.animation_control.widgets.which_bloch.setMaximum(len(self._maintained_properties)-1)
         self.main_window.sub_window_widgets.animation_control.widgets.which_bloch.setValue(0)
         self.main_window.sub_window_widgets.animation_control.widgets.which_bloch.valueChanged.connect(self.update_block_label)
 
-        def update():
+        def update() -> None:
+            """Update to next frame of animation.
+            """
             if self._frame == 0:
                 more_animation = self._to_update_method()
                 
                 if not more_animation:
                     print("stopped animation")
-                    self.timer.stop()
+                    self._timer.stop()
             if self._frame % 5 == 0:
                 self.main_window.timeout_label.setText(str(self._frame))
             self._frame += 1
@@ -163,10 +218,10 @@ class VisualizationWrapper():
             self._update()
 
             if self._frame == self.frames_per_animation:
-                self.timer.stop()
+                self._timer.stop()
                 self._frame = 0
 
-        self.timer.setInterval(33)
-        self.timer.timeout.connect(update)
+        self._timer.setInterval(33)
+        self._timer.timeout.connect(update)
         self.main_window.sub_window_widgets.entanglement_window.widgets.entanglement_visual_widget.draw_idle()
         self.main_window.sub_window_widgets.bloch_window.widgets.figure.canvas.draw_idle()
