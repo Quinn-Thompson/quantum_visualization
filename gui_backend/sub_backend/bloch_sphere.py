@@ -2,6 +2,7 @@
 import numpy as np
 from typing import List, Iterable, Optional, Generator
 from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 from matplotlib.quiver import Quiver
 from gui_backend.helpers import DisplayProperties
 from numpy.typing import NDArray
@@ -10,6 +11,7 @@ from scipy.spatial.transform import Rotation as R, Slerp
 from dataclasses import dataclass
 from gui_backend.helpers import _QUBIT_HILBERT_SPACE
 from gui.helpers import background_color
+from gui_backend.sub_backend.display import GenericDisplay, AnimationBlock
 
 class SphericalAnimatedMatrix():
     """A matrix that can be interpolated around a spherical grid.
@@ -124,7 +126,7 @@ class ValueSet():
     quiver_color: str
     quiver_alpha: float
 
-class AnimationBlock():
+class AnimationBlockSphere(AnimationBlock):
     """A block of information the animation step can use.
     """
     def __init__(
@@ -169,10 +171,10 @@ class AnimationBlock():
         for value_set in value_sets:
             yield value_set
 
-class PerQubitVisualization():
+class PerQubitVisualization(GenericDisplay):
     """The properties of each qubits plot."""
     
-    def __init__(self, subset_axes: Axes, initial_matrix: NDArray, display_properties: Optional[DisplayProperties]) -> None:
+    def __init__(self, axes: Axes, information_input: NDArray, display_properties: Optional[DisplayProperties], figure: Optional[Figure] = None) -> None:
         """Initialize the qubits visualization.
 
         Args:
@@ -180,13 +182,9 @@ class PerQubitVisualization():
             initial_matrix: The initial mixed state.
             display_properties: The initial display properties.
         """
-        self.currently_displayed_index = 0
-        self.next_index_to_display = 0
-        self._animation_blocks: List[AnimationBlock] = []
-        self._subset_axes: Axes = subset_axes
-        self._initialize_bloch_sphere()
-        self._append_block(initial_matrix, display_properties)
-
+        super().__init__(axes, information_input, display_properties, figure)
+        self._animation_blocks: List[AnimationBlockSphere]
+        
         # ugly, but this is the best way to get around locally scoped self issues in iterables
         self.quiver_dict = {
             "state_quiver": None,
@@ -197,7 +195,7 @@ class PerQubitVisualization():
         for quiver_name, quiver, value_set in zip(
             self.quiver_dict.keys(), 
             self.quiver_dict.values(), 
-            self._animation_blocks[self.currently_displayed_index].state_quiver_mix()
+            self._animation_blocks[0].state_quiver_mix()
         ):
             self.update_quiver(
                 quiver_name,
@@ -215,7 +213,7 @@ class PerQubitVisualization():
         """
         return len(self._animation_blocks)
         
-    def _initialize_bloch_sphere(self) -> None:
+    def initialize_plot(self, information_input: NDArray, display_properties: Optional[DisplayProperties] = None) -> None:
         """Create the matplotlib visualization for the bloch sphere.
         """
         u = np.linspace(0, 2 * np.pi, 20)
@@ -223,23 +221,23 @@ class PerQubitVisualization():
         x = np.outer(np.cos(u), np.sin(v))
         y = np.outer(np.sin(u), np.sin(v))
         z = np.outer(np.ones_like(u), np.cos(v))
-        self._subset_axes.plot_wireframe(x, y, z, color='lightblue', alpha=0.1, zorder=3)
-        self._subset_axes.patch.set_facecolor(background_color)
-        self._subset_axes.quiver(0, 0, 0, 0.77, 0, 0, color='r', arrow_length_ratio=0.1, alpha=0.5, zorder=2)
-        self._subset_axes.quiver(0, 0, 0, 0, 0.77, 0, color='g', arrow_length_ratio=0.1, alpha=0.5, zorder=2)
-        self._subset_axes.quiver(0, 0, 0, 0, 0, 0.77, color='b', arrow_length_ratio=0.1, alpha=0.5, zorder=2)
+        self.axes.plot_wireframe(x, y, z, color='lightblue', alpha=0.1, zorder=3)
+        self.axes.patch.set_facecolor(background_color)
+        self.axes.quiver(0, 0, 0, 0.77, 0, 0, color='r', arrow_length_ratio=0.1, alpha=0.5, zorder=2)
+        self.axes.quiver(0, 0, 0, 0, 0.77, 0, color='g', arrow_length_ratio=0.1, alpha=0.5, zorder=2)
+        self.axes.quiver(0, 0, 0, 0, 0, 0.77, color='b', arrow_length_ratio=0.1, alpha=0.5, zorder=2)
 
         # Settings
-        self._subset_axes.set_xlim([-0.7, 0.7])
-        self._subset_axes.set_ylim([-0.7, 0.7])
-        self._subset_axes.set_zlim([-0.7, 0.7])
-        self._subset_axes.set_box_aspect([1,1,1])
-        self._subset_axes.axis('off')
+        self.axes.set_xlim([-0.7, 0.7])
+        self.axes.set_ylim([-0.7, 0.7])
+        self.axes.set_zlim([-0.7, 0.7])
+        self.axes.set_box_aspect([1,1,1])
+        self.axes.axis('off')
                 
-        self._subset_axes.text(x=0.0, y=0.0, z=1.2, s='|0⟩', color='white', fontsize=8, zorder=1)
-        self._subset_axes.text(x=0.0, y=0.0, z=-1.4, s='|1⟩', color='white', fontsize=8, zorder=1)
-        self._subset_axes.text(x=0.0, y=1.1, z=0.0, s='y', color='white', fontsize=8, zorder=1)
-        self._subset_axes.text(x=1.1, y=0.0, z=0.0, s='x', color='white', fontsize=8, zorder=1)
+        self.axes.text(x=0.0, y=0.0, z=1.2, s='|0⟩', color='white', fontsize=8, zorder=1)
+        self.axes.text(x=0.0, y=0.0, z=-1.4, s='|1⟩', color='white', fontsize=8, zorder=1)
+        self.axes.text(x=0.0, y=1.1, z=0.0, s='y', color='white', fontsize=8, zorder=1)
+        self.axes.text(x=1.1, y=0.0, z=0.0, s='x', color='white', fontsize=8, zorder=1)
         
     def update_quiver(self, quiver_name: str, quiver: Quiver, transition_matrix: NDArray[np.float64], quiver_color: str, quiver_alpha: float):
         """Update the quiver position.
@@ -253,7 +251,7 @@ class PerQubitVisualization():
         """
         if quiver is not None:
             quiver.remove()
-        self.quiver_dict[quiver_name] = self._subset_axes.quiver(
+        self.quiver_dict[quiver_name] = self.axes.quiver(
             0, 
             0, 
             0, 
@@ -265,15 +263,15 @@ class PerQubitVisualization():
             alpha = quiver_alpha
         )
         
-    def update_plot(self, interpolation_ratio: float) -> None:
+    def update_plot(self, interpolation_ratio: float, current_index: int, next_index: int) -> None:
         """Update the plot of the qubit.
 
         Args:
             interpolation_ratio: The current point of interpolation between this matrix and the next.
         """
         for value_set, value_set_transition, quiver_name, plot_quiver in zip(
-            self._animation_blocks[self.currently_displayed_index].state_quiver_mix(), 
-            self._animation_blocks[self.next_index_to_display].state_quiver_mix(),
+            self._animation_blocks[current_index].state_quiver_mix(), 
+            self._animation_blocks[next_index].state_quiver_mix(),
             self.quiver_dict.keys(),
             self.quiver_dict.values(),
         ):
@@ -332,9 +330,9 @@ class PerQubitVisualization():
             bloch_vectors.append(bloch_vector)
         return bloch_vectors
 
-    def _append_block(
+    def append_block(
         self, 
-        matrix_to_add: NDArray, 
+        information_input: NDArray, 
         bloch_properties: Optional[DisplayProperties] = None, 
     ):
         """Append the x, y and z coordinates state to animate.
@@ -343,9 +341,9 @@ class PerQubitVisualization():
             quantum_circuit: The circuit to visualize.
             display_properties: The initial display properties.
         """
-        next_matrix = SphericalAnimatedMatrix(self.transform_complex_to_xyz(matrix_to_add))
+        next_matrix = SphericalAnimatedMatrix(self.transform_complex_to_xyz(information_input))
         
-        percentiles, mixed_vectors = np.linalg.eigh(matrix_to_add)
+        percentiles, mixed_vectors = np.linalg.eigh(information_input)
         bloch_vectors = self.transform_vector_to_xyz(mixed_vectors)
         next_mixed_matrix_1 = SphericalAnimatedMatrix(bloch_vectors[0])
         next_mixed_matrix_2 = SphericalAnimatedMatrix(bloch_vectors[1])
@@ -355,65 +353,33 @@ class PerQubitVisualization():
             next_matrix.previous_nonzero_rotation = np.array(next_matrix) / np.linalg.norm(np.array(next_matrix))
         if bloch_properties is None:
             bloch_properties = DisplayProperties()
-        self._animation_blocks.append(AnimationBlock(
+        self._animation_blocks.append(AnimationBlockSphere(
             next_matrix, next_mixed_matrix_1, next_mixed_matrix_2, bloch_properties
         ))
         
-    def next_animation_block(self, to_transition_index: int) -> bool:
+    def next_animation_block(self, current_index: int, next_index: int) -> None:
         """Jump to the next block for animation.
 
         Args:
-            to_transition_index: The index of the animation block to jump to.
+            next_index: The index of the animation block to jump to.
 
         Returns:
             Whether it was able to jump to this index.
         """
-        if 0 > to_transition_index > len(self._animation_blocks):
-            return False
-        else:
-            self.currently_displayed_index = self.next_index_to_display
-            self.next_index_to_display = to_transition_index
-            
-            change_in_matrix = False
-            for value_set, value_set_transition in zip(
-                self._animation_blocks[self.currently_displayed_index].state_quiver_mix(), 
-                self._animation_blocks[self.next_index_to_display].state_quiver_mix(),
+
+        change_in_matrix = False
+        for value_set, value_set_transition in zip(
+            self._animation_blocks[current_index].state_quiver_mix(), 
+            self._animation_blocks[next_index].state_quiver_mix(),
+        ):
+            if (
+                not np.all(np.isclose(
+                    np.array(value_set.animated_matrix),
+                    np.array(value_set_transition.animated_matrix)
+                ))
             ):
-                if (
-                    not np.all(np.isclose(
-                        np.array(value_set.animated_matrix),
-                        np.array(value_set_transition.animated_matrix)
-                    ))
-                ):
-                    change_in_matrix = True
-            if change_in_matrix:
-                self._subset_axes.set_title(self._animation_blocks[self.next_index_to_display].bloch_properties.plot_name, color='white')
-
-            return True
-    
-    def to_x_block(self, block_to_jump_to: int) -> bool:
-        """Move to some x block.
-
-        Args:
-            block_to_jump_to: The animation block to jump to.
-
-        Returns:
-            Whether it was able to jump to that block.
-        """
-        return self.next_animation_block(block_to_jump_to)
-
-    def to_next_block(self) -> bool:
-        """Move to next block.
-
-        Returns:
-            Whether it was able to jump to that block.
-        """
-        return self.next_animation_block(self.next_index_to_display+1)
-
-    def to_prev_block(self) -> bool:
-        """Move to previous block.
-
-        Returns:
-            Whether it was able to jump to that block.
-        """
-        return self.next_animation_block(self.next_index_to_display-1)
+                change_in_matrix = True
+        if change_in_matrix:
+            self.axes.set_title(self._animation_blocks[next_index].bloch_properties.plot_name, color='white')
+        else:
+            self.axes.set_title("", color='white')

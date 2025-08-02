@@ -9,6 +9,7 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.image import AxesImage
 from gui.helpers import background_color
+from gui_backend.sub_backend.display import GenericDisplay, AnimationBlock
 
 class AnimatedMatrix():
     """A generic matrix that can interpolate to another value.
@@ -52,7 +53,7 @@ class AnimatedMatrix():
         return transition_matrix
 
 
-class AnimationBlockEntanglement():
+class AnimationBlockEntanglement(AnimationBlock):
     """A block of information for the animation steps to use.
     """
     def __init__(self, entanglement_values: AnimatedMatrix, display_properties: DisplayProperties) -> None:
@@ -67,11 +68,11 @@ class AnimationBlockEntanglement():
         self.display_properties: Optional[DisplayProperties] = display_properties
         
 
-class EntanglementMatrix():
+class EntanglementMatrix(GenericDisplay):
     """The matrix to view the entanglement of the quantum circuit.
     """
     
-    def __init__(self, quantum_circuit: qiskit.QuantumCircuit, figure: Figure, axes: Axes, display_properties: Optional[DisplayProperties]) -> None:
+    def __init__(self, axes: Axes, information_input: qiskit.QuantumCircuit, display_properties: Optional[DisplayProperties], figure: Optional[Figure] = None) -> None:
         """Initialize the class attributes for the entanglement matrix.
 
         Args:
@@ -80,25 +81,21 @@ class EntanglementMatrix():
             axes: The axes of the figure to be handled.
             display_properties: The initial display properties.
         """
-        self.figure = figure
-        self.axes = axes
         self.image: Optional[AxesImage] = None
         self.image_text = []
-        self.currently_displayed_index = 0
-        self.next_index_to_display = 0
-        
-        self._animation_blocks: List[AnimationBlockEntanglement] = []
-        self.append_block(quantum_circuit, display_properties)
-        self._initialize_heatmap(quantum_circuit, display_properties)
 
-    def _initialize_heatmap(self, quantum_circuit: qiskit.QuantumCircuit, display_properties: DisplayProperties) -> None:
+        super().__init__(axes, information_input, display_properties, figure)
+        self._animation_blocks: List[AnimationBlockEntanglement]
+
+
+    def initialize_plot(self, information_input: qiskit.QuantumCircuit, display_properties: DisplayProperties) -> None:
         """Initialize the actual heatmap display properties.
 
         Args:
             quantum_circuit: The circuit to visualize.
             display_properties: The initial display properties.
         """
-
+        del display_properties
         self.figure.patch.set_facecolor(background_color)
 
         self.axes.set_xticks(np.arange(np.array(self._animation_blocks[0].animated_matrix).shape[1]))
@@ -106,11 +103,11 @@ class EntanglementMatrix():
 
 
         self.axes.set_xticklabels(
-            [f"{quantum_register.name}: qubit {quantum_register.index(qubit)}" for quantum_register in quantum_circuit.qregs for qubit in quantum_register],
+            [f"{quantum_register.name}: qubit {quantum_register.index(qubit)}" for quantum_register in information_input.qregs for qubit in quantum_register],
             rotation=45, color='white'
         )
         self.axes.set_yticklabels(
-            [f"{quantum_register.name}: qubit {quantum_register.index(qubit)}" for quantum_register in quantum_circuit.qregs for qubit in quantum_register],
+            [f"{quantum_register.name}: qubit {quantum_register.index(qubit)}" for quantum_register in information_input.qregs for qubit in quantum_register],
             color='white'
         )
         self.axes.set_xticks(np.arange(np.array(self._animation_blocks[0].animated_matrix).shape[1]+1)-0.5, minor=True)
@@ -121,7 +118,12 @@ class EntanglementMatrix():
         self.image = self.axes.imshow(np.array(self._animation_blocks[0].animated_matrix), cmap='viridis', origin='lower', vmin=0, vmax=1)
         color_bar = self.figure.colorbar(self.image, ax=self.axes)
         color_bar.set_label('Entanglement Scale', color='white')
-
+        color_bar.ax.yaxis.set_tick_params(color='white')
+        for label in color_bar.ax.get_yticklabels():
+            label.set_color('white')
+        for spine in color_bar.ax.spines.values():
+            spine.set_edgecolor('white')
+            spine.set_linewidth(1.5)
         # Loop over data dimensions and create text annotations.
         for i in range(np.array(self._animation_blocks[0].animated_matrix).shape[0]):
             self.image_text.append([])
@@ -131,7 +133,7 @@ class EntanglementMatrix():
 
     def append_block(
         self, 
-        quantum_circuit: qiskit.QuantumCircuit, 
+        information_input: qiskit.QuantumCircuit, 
         display_properties: Optional[DisplayProperties] = None, 
     ) -> None:
         """Append a new quantum circuit state to animate.
@@ -140,19 +142,19 @@ class EntanglementMatrix():
             quantum_circuit: The circuit to visualize.
             display_properties: The initial display properties.
         """
-        matrix_to_add = self.mutual_entanglement(quantum_circuit)
+        matrix_to_add = self.mutual_entanglement(information_input)
         self._animation_blocks.append(AnimationBlockEntanglement(
             matrix_to_add, display_properties
         ))
         
-    def update_heatmap(self, interpolation_ratio) -> None:
+    def update_plot(self, interpolation_ratio: float, current_index: int, next_index: int) -> None:
         """Update the heatmap to the next interpolation item.
 
         Args:
             interpolation_ratio: The current point of interpolation between this matrix and the next.
         """
-        current_matrix = self._animation_blocks[self.currently_displayed_index].animated_matrix
-        next_matrix = self._animation_blocks[self.next_index_to_display].animated_matrix
+        current_matrix = self._animation_blocks[current_index].animated_matrix
+        next_matrix = self._animation_blocks[next_index].animated_matrix
 
         transition_matrix = current_matrix.acquire_interpolated_value(interpolation_ratio, next_matrix)
         self.image.set_data(transition_matrix)
@@ -162,23 +164,17 @@ class EntanglementMatrix():
                 self.image_text[i][j].set_text(f"{transition_matrix[i, j]:.2f}")
 
 
-    def next_animation_block(self, to_transition_index: int) -> bool:
+    def next_animation_block(self, current_index: int, next_index: int ) -> bool:
         """Jump to the next block for animation.
 
         Args:
-            to_transition_index: The index of the animation block to jump to.
+            next_index: The index of the animation block to jump to.
 
         Returns:
             Whether it was able to jump to this index.
         """
-        if 0 > to_transition_index > len(self._animation_blocks):
-            return False
-        else:
-            self.currently_displayed_index = self.next_index_to_display
-            self.next_index_to_display = to_transition_index
-            self.axes.set_title(self._animation_blocks[self.next_index_to_display].display_properties.plot_name)
-
-            return True
+        del current_index
+        self.axes.set_title(self._animation_blocks[next_index].display_properties.plot_name, color="white")
         
     @staticmethod
     def von_neumann_entropy(qubit_trace: np.ndarray) -> float:
@@ -258,30 +254,3 @@ class EntanglementMatrix():
                 
         entanglement_matrix.current_matrix_value = combination_matrices
         return entanglement_matrix
-
-    def to_x_block(self, block_to_jump_to: int) -> bool:
-        """Move to some x block.
-
-        Args:
-            block_to_jump_to: The animation block to jump to.
-
-        Returns:
-            Whether it was able to jump to that block.
-        """
-        return self.next_animation_block(block_to_jump_to)
-
-    def to_next_block(self) -> bool:
-        """Move to next block.
-
-        Returns:
-            Whether it was able to jump to that block.
-        """
-        return self.next_animation_block(self.next_index_to_display+1)
-
-    def to_prev_block(self) -> bool:
-        """Move to previous block.
-
-        Returns:
-            Whether it was able to jump to that block.
-        """
-        return self.next_animation_block(self.next_index_to_display-1)

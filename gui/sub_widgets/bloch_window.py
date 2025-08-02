@@ -24,11 +24,6 @@ class BlochWindow(QtWidgets.QFrame):
         self.main_layout = QtWidgets.QGridLayout()
         self.widgets: BlochWindowWidgets = BlochWindowWidgets()
         self.setObjectName("BlochWindow")
-        self.setStyleSheet(
-            "QWidget#BlochWindow {" 
-            "border: 2px solid red;"
-            "}"
-        )
         self.setLayout(self.main_layout)
         self.main_layout.addWidget(
             self.widgets.bloch_visual_widget,

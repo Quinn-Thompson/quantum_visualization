@@ -23,11 +23,6 @@ class EntanglementWindow(QtWidgets.QFrame):
         self.main_layout = QtWidgets.QGridLayout()
         self.widgets: EntanglementWindowWidgets = EntanglementWindowWidgets()
         self.setObjectName("EntanglementWindow")
-        self.setStyleSheet(
-            "QWidget#EntanglementWindow {" 
-            "border: 2px solid red;"
-            "}"
-        )
         self.setLayout(self.main_layout)
         self.main_layout.addWidget(
             self.widgets.entanglement_visual_widget,
