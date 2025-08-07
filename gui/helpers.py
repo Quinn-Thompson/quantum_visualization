@@ -3,6 +3,7 @@
 background_color = "#1A1A1A"
 hover_color = "#4A4A4A"
 clicked_color = "#8A8A8A"
+border_color = "#90ADC3"
 
 
 global_budget_window_style = (
@@ -10,8 +11,8 @@ global_budget_window_style = (
     "border-style: outset;"
     "border-width: 2px;"
     "border-radius: 10px;"
-    "border-color: #90ADC3;"
-    "color: #90ADC3;"
+    f"border-color: {border_color};"
+    f"color: {border_color};"
     "font: bold 14px;"
     "min-width: 50px;"
     "padding: 6px;"

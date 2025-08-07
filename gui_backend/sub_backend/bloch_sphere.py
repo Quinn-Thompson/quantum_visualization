@@ -347,7 +347,7 @@ class PerQubitVisualization(GenericDisplay):
         bloch_vectors = self.transform_vector_to_xyz(mixed_vectors)
         next_mixed_matrix_1 = SphericalAnimatedMatrix(bloch_vectors[0])
         next_mixed_matrix_2 = SphericalAnimatedMatrix(bloch_vectors[1])
-        if np.all(next_matrix == 0.0) and len(self._animation_blocks) != 0:
+        if np.all(np.allclose(next_matrix, 0.0)) and len(self._animation_blocks) != 0:
             next_matrix.previous_nonzero_rotation = self._animation_blocks[-1].mixed_state_value_set.animated_matrix.previous_nonzero_rotation
         else:
             next_matrix.previous_nonzero_rotation = np.array(next_matrix) / np.linalg.norm(np.array(next_matrix))

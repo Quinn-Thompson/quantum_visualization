@@ -5,7 +5,7 @@ from PyQt6 import QtGui
 from gui.helpers import hover_color, clicked_color
 from typing import Generator
 
-_LABEL_WIDTH = 900
+_LABEL_WIDTH = 400
 
 class AnimationControlWindowWidgets():
     """The widgets for the animation control window.
@@ -64,10 +64,11 @@ class AnimationControl(QtWidgets.QFrame):
         self.main_layout.addWidget(self.widgets.to_x_block, 0, 2, alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
         self.main_layout.addWidget(self.widgets.which_bloch, 1, 1, alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
         self.main_layout.addWidget(self.widgets.array_title, 2, 1, alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.widgets.array_title.setSizePolicy(QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Preferred)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Preferred)
         self.widgets.array_title.setFixedHeight(50)
-        self.widgets.array_title.setMaximumWidth(_LABEL_WIDTH)
-        self.widgets.array_title.setMinimumWidth(_LABEL_WIDTH)
+        self.setMaximumWidth(_LABEL_WIDTH)
+        self.widgets.array_title.setMaximumWidth(200)
+        self.widgets.array_title.setMinimumWidth(200)
         self.widgets.array_title.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.NoTextInteraction)
         self.widgets.array_title.setWordWrap(False)
         self.main_layout.setColumnStretch(1, 0)
@@ -76,8 +77,18 @@ class AnimationControl(QtWidgets.QFrame):
 
     def set_elided_text(self, text: str):
         metrics = QtGui.QFontMetrics(self.widgets.array_title.font())
-        elided = metrics.elidedText(text, QtCore.Qt.TextElideMode.ElideRight, _LABEL_WIDTH)
-        self.widgets.array_title.setText(elided)
+        text += " "*100
+        result = ""
+        current_width = 0
+        for char in text:
+            char_width = metrics.horizontalAdvance(char)
+            if current_width + char_width > (self.width() - 20):
+                break
+            result += char
+            current_width += char_width
+                    
+
+        self.widgets.array_title.setText(result)
         
     def setup_buttons(self):
         """Setup button style so it has feedback.

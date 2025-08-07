@@ -11,6 +11,7 @@ from functools import partial
 from gui.main_window import MainWindow
 from gui_backend.sub_backend.entanglement import EntanglementMatrix
 from gui_backend.sub_backend.bloch_sphere import PerQubitVisualization
+from gui_backend.sub_backend.circuit_and_equation import CircuitVisualization
 from PyQt6.QtCore import QTimer
 from gui.helpers import background_color
 matplotlib.use("TkAgg")
@@ -53,6 +54,11 @@ class VisualizationWrapper():
             quantum_circuit, 
             display_properties,
             self.main_window.sub_window_widgets.entanglement_window.widgets.figure, 
+        )
+        self.circuit_visual = CircuitVisualization(
+            self.main_window.sub_window_widgets.circuit_window,
+            quantum_circuit,
+            display_properties,
         )
         
         
@@ -119,16 +125,23 @@ class VisualizationWrapper():
                 reduced_state_vector, bloch_properties
             )
         self.entanglement.append_block(quantum_circuit, bloch_properties)
+        self.circuit_visual.append_block(quantum_circuit, bloch_properties)
 
     def _update(self) -> None:
         """Update to the next interpolated visual.
         """
+        end_animation = self._frame == self.frames_per_animation
         interpolation_ratio = self._frame / self.frames_per_animation
-        for per_qubit_obj in self._qubit_subplots.values():
-            per_qubit_obj.update_plot(interpolation_ratio, self.currently_displayed_index, self._next_index_to_display)
-        self.entanglement.update_plot(interpolation_ratio, self.currently_displayed_index, self._next_index_to_display)
-        self.main_window.sub_window_widgets.bloch_window.widgets.bloch_visual_widget.draw_idle()
-        self.main_window.sub_window_widgets.entanglement_window.widgets.entanglement_visual_widget.draw_idle()
+        if self.main_window.tabs.currentWidget() == self.main_window.sub_window_widgets.bloch_window or end_animation:
+            for per_qubit_obj in self._qubit_subplots.values():
+                per_qubit_obj.update_plot(interpolation_ratio, self.currently_displayed_index, self._next_index_to_display)
+            self.main_window.sub_window_widgets.bloch_window.widgets.bloch_visual_widget.draw_idle()
+        if self.main_window.tabs.currentWidget() == self.main_window.sub_window_widgets.entanglement_window or end_animation:
+            self.entanglement.update_plot(interpolation_ratio, self.currently_displayed_index, self._next_index_to_display)
+            self.main_window.sub_window_widgets.entanglement_window.widgets.entanglement_visual_widget.draw_idle()
+        if self.main_window.tabs.currentWidget() == self.main_window.sub_window_widgets.circuit_window or end_animation:
+            self.circuit_visual.update_plot(interpolation_ratio, self.currently_displayed_index, self._next_index_to_display)
+            self.main_window.sub_window_widgets.circuit_window.widgets.circuit_visual_widget.draw_idle()
 
     def _move_to_next_block(self):
         """Move to next block.
@@ -139,6 +152,8 @@ class VisualizationWrapper():
         for per_qubit_obj in self._qubit_subplots.values():
             per_qubit_obj.next_animation_block(self.currently_displayed_index, self._next_index_to_display)
         self.entanglement.next_animation_block(self.currently_displayed_index, self._next_index_to_display)
+        self.circuit_visual.next_animation_block(self.currently_displayed_index, self._next_index_to_display)
+
 
     def update_method_to_use(self, update_method: Literal["next", "prev", "x"]):
         """Update which block to jump to.
