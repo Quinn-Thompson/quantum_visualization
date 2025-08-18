@@ -16,6 +16,7 @@ class GenericDisplay():
         self.figure = figure
         self._animation_blocks: List[AnimationBlock] = []
         self.append_block(information_input, display_properties)
+        self.animation_block_length = 0
         self.initialize_plot(information_input, display_properties)
 
     @abstractmethod

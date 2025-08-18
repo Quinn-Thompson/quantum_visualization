@@ -7,6 +7,7 @@ import matplotlib.gridspec as gridspec
 import qiskit
 import qiskit.circuit
 from qiskit.quantum_info import Statevector, partial_trace
+from qiskit_aer import AerSimulator
 from functools import partial
 from gui.main_window import MainWindow
 from gui_backend.sub_backend.entanglement import EntanglementMatrix
@@ -14,6 +15,8 @@ from gui_backend.sub_backend.bloch_sphere import PerQubitVisualization
 from gui_backend.sub_backend.circuit_and_equation import CircuitVisualization
 from PyQt6.QtCore import QTimer
 from gui.helpers import background_color
+import random
+import string
 matplotlib.use("TkAgg")
 
 class VisualizationWrapper():
@@ -61,22 +64,25 @@ class VisualizationWrapper():
             display_properties,
         )
         
-        
         num_quantum_registers = len(quantum_circuit.qregs)
         
         # we use grid spec to seperate registers
         self.main_grid_layout = gridspec.GridSpec(
             int(np.ceil(np.sqrt(num_quantum_registers))), 
             int(np.ceil(np.sqrt(num_quantum_registers))), 
-            height_ratios=[1, 1], 
             hspace=0.4
         )
         self.main_window.sub_window_widgets.bloch_window.widgets.figure.patch.set_facecolor(background_color)
         self._quantum_register_grid: Dict[qiskit.QuantumRegister, gridspec.GridSpecFromSubplotSpec] = {}
         self._qubit_subplots: Dict[qiskit.circuit.Qubit, PerQubitVisualization] = {}
-        quantum_vector = Statevector.from_instruction(quantum_circuit)
+        name = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(256))
+        quantum_circuit.save_statevector(label=name)
+        simulator = AerSimulator(method='statevector')
+
+        compiled_circuit = qiskit.transpile(quantum_circuit, simulator)
+        result = simulator.run(compiled_circuit).result()
+        quantum_vector = result.data(0)[name]
         keep_indices = list(range(len(quantum_circuit.qubits)))
-        
         # create a sub plot for each qubit depending on the register
         for register_number, quantum_register in enumerate(quantum_circuit.qregs):
             qubit_count = len(list(quantum_register))
@@ -96,9 +102,11 @@ class VisualizationWrapper():
                     self.main_window.sub_window_widgets.bloch_window.widgets.figure.add_subplot(
                         self._quantum_register_grid[quantum_register.name][qubit_number%square_length, qubit_number//square_length], projection='3d',
                 ), reduced_state_vector, display_properties)
+        print("Succeeded Initializing Bloch Spheres")
         self.main_window.sub_window_widgets.bloch_window.widgets.figure.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
         self._frame = 0
         self._total_frame_count = 0
+        print("Finished Initialization")
 
     @property
     def qubit_subplots(self) -> Dict[qiskit.circuit.Qubit, PerQubitVisualization]:
@@ -112,14 +120,27 @@ class VisualizationWrapper():
     def add_circuit_state(
         self, 
         quantum_circuit: qiskit.QuantumCircuit, 
-        bloch_properties: DisplayProperties, 
+        bloch_properties: DisplayProperties,
+        fast_vector: bool = False,
+        simulator: Optional[AerSimulator] = None,
     ):
         self._maintained_properties.append(bloch_properties)
-        quantum_vector = Statevector.from_instruction(quantum_circuit)
+        print("Attempting to Attain Statevector")
+        if not fast_vector:
+            quantum_vector = Statevector.from_instruction(quantum_circuit)
+        else:
+            name = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(256))
+            quantum_circuit.save_statevector(label=name)
+            simulator = AerSimulator(method='statevector')
+
+            compiled_circuit = qiskit.transpile(quantum_circuit, simulator)
+            result = simulator.run(compiled_circuit).result()
+            quantum_vector = result.data(0)[name]
         keep_indices = list(range(len(quantum_circuit.qubits)))
         for qubit in quantum_circuit.qubits:
             traced_out_indices = keep_indices.copy()
             traced_out_indices.remove(quantum_circuit.qubits.index(qubit))
+            print(traced_out_indices)
             reduced_state_vector = partial_trace(quantum_vector, traced_out_indices).data
             self._qubit_subplots[quantum_circuit.qubits.index(qubit)].append_block(
                 reduced_state_vector, bloch_properties
@@ -163,8 +184,12 @@ class VisualizationWrapper():
         """
         self.currently_displayed_index = self._next_index_to_display
         if update_method == "next":
+            if self._next_index_to_display > self.circuit_visual.animation_block_length - 1:
+                return
             self._next_index_to_display += 1
         elif update_method == "prev":
+            if self._next_index_to_display < 0:
+                return
             self._next_index_to_display -= 1
         elif update_method == "x":
             self._next_index_to_display = self.main_window.sub_window_widgets.animation_control.widgets.which_bloch.value()

@@ -356,6 +356,7 @@ class PerQubitVisualization(GenericDisplay):
         self._animation_blocks.append(AnimationBlockSphere(
             next_matrix, next_mixed_matrix_1, next_mixed_matrix_2, bloch_properties
         ))
+        self.animation_block_length = len(self._animation_blocks)
         
     def next_animation_block(self, current_index: int, next_index: int) -> None:
         """Jump to the next block for animation.

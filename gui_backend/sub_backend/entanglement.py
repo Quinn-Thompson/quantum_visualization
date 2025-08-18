@@ -4,12 +4,15 @@ from typing import List, Optional
 from gui_backend.helpers import DisplayProperties
 from numpy.typing import NDArray
 import qiskit
+from qiskit_aer import AerSimulator
 from qiskit.quantum_info import Statevector, partial_trace
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.image import AxesImage
 from gui.helpers import background_color
 from gui_backend.sub_backend.display import GenericDisplay, AnimationBlock
+import random
+import string
 
 class AnimatedMatrix():
     """A generic matrix that can interpolate to another value.
@@ -146,6 +149,7 @@ class EntanglementMatrix(GenericDisplay):
         self._animation_blocks.append(AnimationBlockEntanglement(
             matrix_to_add, display_properties
         ))
+        self.animation_block_length = len(self._animation_blocks)
         
     def update_plot(self, interpolation_ratio: float, current_index: int, next_index: int) -> None:
         """Update the heatmap to the next interpolation item.
@@ -227,7 +231,14 @@ class EntanglementMatrix(GenericDisplay):
         """
         combination_matrices = np.empty((len(quantum_circuit.qubits), len(quantum_circuit.qubits)), dtype=np.float64)
         entanglement_matrix = AnimatedMatrix(combination_matrices)
-        quantum_vector = Statevector.from_instruction(quantum_circuit)
+        name = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(256))
+        quantum_circuit.save_statevector(label=name)
+        simulator = AerSimulator(method='matrix_product_state', matrix_product_state_max_bond_dimension=4096, seed_simulator=42)
+
+        compiled_circuit = qiskit.transpile(quantum_circuit, simulator)
+        result = simulator.run(compiled_circuit).result()
+        quantum_vector = result.data(0)[name]
+
         qubit_list = list(range(len(quantum_circuit.qubits)))
         qubit_traces: List[NDArray[np.complex128]] = []
         # find the single qubit traces
@@ -251,6 +262,6 @@ class EntanglementMatrix(GenericDisplay):
                     partial_trace(quantum_vector, combination_qubit).data, 
                 )
                 combination_matrices[qubit_number_1, qubit_number_2] = np.round(von_neuman, 3) / 2
-                
+                print(qubit_number_1)
         entanglement_matrix.current_matrix_value = combination_matrices
         return entanglement_matrix

@@ -2,6 +2,7 @@
 from gui.main_window import start_application, MainWindow
 from gui_backend.sub_backend.visualize_qubits import VisualizationWrapper
 import qiskit
+from qiskit_aer import AerSimulator
 from typing import Optional
 from gui_backend.helpers import DisplayProperties
 
@@ -29,7 +30,7 @@ class QuantumCircuitWindow:
         self.bloch_backend.setup_circuit(quantum_circuit, frames_per_animation, display_properies)
         self.circuit_initialized = True
         
-    def add_circuit_state(self, quantum_circuit: qiskit.QuantumCircuit, display_properies: DisplayProperties) -> None:
+    def add_circuit_state(self, quantum_circuit: qiskit.QuantumCircuit, display_properies: DisplayProperties, fast_state: bool = False) -> None:
         """Add a new circuit state that the initial or previous states can move to.
 
         Args:
@@ -38,7 +39,7 @@ class QuantumCircuitWindow:
         """
         if not self.circuit_initialized:
             raise ValueError("Circuit not initialized, call initialize_circuit_properties.")
-        self.bloch_backend.add_circuit_state(quantum_circuit, display_properies)
+        self.bloch_backend.add_circuit_state(quantum_circuit, display_properies, fast_state)
 
     def animate_circuit(self) -> None:
         """Animate the different displays.

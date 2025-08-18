@@ -3,12 +3,15 @@ import numpy as np
 from typing import List, Optional
 from gui_backend.helpers import DisplayProperties
 import qiskit
+from qiskit_aer import AerSimulator
 from qiskit.quantum_info import Statevector
 from gui_backend.sub_backend.display import GenericDisplay, AnimationBlock
 from copy import deepcopy
 from gui.sub_widgets.circuit_and_equation import CircuitWindow
 from PyQt6.QtWidgets import QGraphicsOpacityEffect
 from gui.helpers import background_color, clicked_color, border_color
+import random
+import string
 
 MPL_STYLE = {
     "backgroundcolor": background_color,
@@ -142,7 +145,14 @@ class CircuitVisualization(GenericDisplay):
             display_properties: The initial display properties.
         """
         # immediately garbage collect statevector
-        state_vector = Statevector.from_instruction(information_input)
+        name = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(256))
+        information_input.save_statevector(label=name)
+        simulator = AerSimulator(method='statevector')
+
+        compiled_circuit = qiskit.transpile(information_input, simulator)
+        result = simulator.run(compiled_circuit).result()
+        state_vector = result.data(0)[name]
+
         num_qubits = len(information_input.qubits)
         labels = [format(qubit, f'0{num_qubits}b') for qubit in range(2**num_qubits)]
         terms = []
@@ -172,7 +182,7 @@ class CircuitVisualization(GenericDisplay):
                 first_item = False
                 terms.append(f"{"(" if use_paranthesis else ""}{term_string}{")" if use_paranthesis else ""}|{basis}⟩")
         self._animation_blocks.append(AnimationBlockCircuit(information_input, terms, bloch_properties))
-
+        self.animation_block_length = len(self._animation_blocks)
         
     def next_animation_block(self, current_index: int, next_index: int) -> None:
         """Jump to the next block for animation.
