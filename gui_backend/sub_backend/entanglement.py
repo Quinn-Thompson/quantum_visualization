@@ -106,11 +106,11 @@ class EntanglementMatrix(GenericDisplay):
 
 
         self.axes.set_xticklabels(
-            [f"{quantum_register.name}: qubit {quantum_register.index(qubit)}" for quantum_register in information_input.qregs for qubit in quantum_register],
+            [f"{quantum_register.name} {quantum_register.index(qubit)}" for quantum_register in information_input.qregs for qubit in quantum_register],
             rotation=45, color='white'
         )
         self.axes.set_yticklabels(
-            [f"{quantum_register.name}: qubit {quantum_register.index(qubit)}" for quantum_register in information_input.qregs for qubit in quantum_register],
+            [f"{quantum_register.name} {quantum_register.index(qubit)}" for quantum_register in information_input.qregs for qubit in quantum_register],
             color='white'
         )
         self.axes.set_xticks(np.arange(np.array(self._animation_blocks[0].animated_matrix).shape[1]+1)-0.5, minor=True)
@@ -127,11 +127,11 @@ class EntanglementMatrix(GenericDisplay):
         for spine in color_bar.ax.spines.values():
             spine.set_edgecolor('white')
             spine.set_linewidth(1.5)
-        # Loop over data dimensions and create text annotations.
+        # loop over data dimensions and create text
         for i in range(np.array(self._animation_blocks[0].animated_matrix).shape[0]):
             self.image_text.append([])
             for j in range(np.array(self._animation_blocks[0].animated_matrix).shape[1]):
-                text = self.axes.text(j, i, f"{np.array(self._animation_blocks[0].animated_matrix)[i, j]:.2f}", ha='center', va='center', color='white')
+                text = self.axes.text(j, i, f"{np.array(self._animation_blocks[0].animated_matrix)[i, j]:.1f}", ha='center', va='center', color='white')
                 self.image_text[i].append(text)
 
     def append_block(
@@ -165,7 +165,7 @@ class EntanglementMatrix(GenericDisplay):
 
         for i in range(transition_matrix.shape[0]):
             for j in range(transition_matrix.shape[1]):
-                self.image_text[i][j].set_text(f"{transition_matrix[i, j]:.2f}")
+                self.image_text[i][j].set_text(f"{transition_matrix[i, j]:.1f}")
 
 
     def next_animation_block(self, current_index: int, next_index: int ) -> bool:
@@ -233,9 +233,15 @@ class EntanglementMatrix(GenericDisplay):
         entanglement_matrix = AnimatedMatrix(combination_matrices)
         name = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(256))
         quantum_circuit.save_statevector(label=name)
-        simulator = AerSimulator(method='matrix_product_state', matrix_product_state_max_bond_dimension=4096, seed_simulator=42)
+        simulator = AerSimulator(method='statevector')
 
-        compiled_circuit = qiskit.transpile(quantum_circuit, simulator)
+        compiled_circuit = qiskit.transpile(
+            quantum_circuit, 
+            simulator,
+            initial_layout=quantum_circuit.qubits,
+            layout_method='trivial',
+            optimization_level=1,
+        )
         result = simulator.run(compiled_circuit).result()
         quantum_vector = result.data(0)[name]
 
@@ -262,6 +268,5 @@ class EntanglementMatrix(GenericDisplay):
                     partial_trace(quantum_vector, combination_qubit).data, 
                 )
                 combination_matrices[qubit_number_1, qubit_number_2] = np.round(von_neuman, 3) / 2
-                print(qubit_number_1)
         entanglement_matrix.current_matrix_value = combination_matrices
         return entanglement_matrix

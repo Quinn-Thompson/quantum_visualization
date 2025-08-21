@@ -12,7 +12,7 @@ class DisplayProperties():
     quiver_state_color: str = "white"
     quiver_state_alpha: float = 1.0
     quiver_mixed_1_color: str = "cyan"
-    quiver_mixed_1_alpha: float = 0.2
+    quiver_mixed_1_alpha: float = 0.1
     quiver_mixed_2_color: str = "yellow"
-    quiver_mixed_2_alpha: float = 0.2
+    quiver_mixed_2_alpha: float = 0.1
     entanglement_colors: str = "red"

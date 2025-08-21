@@ -26,6 +26,8 @@ MPL_STYLE = {
         "cx": ("#ccffcc", "#000000"),  # green CX gate
         "ccx": ("#76ff76", "#000000"),  # green CX gate
         "mcx": ("#26ff26", "#000000"),  # green CX gate
+        "swap": ("#ddfa5a", "#000000"),
+        "cswap": ("#ffd885", "#000000"),
     }
 }
 
@@ -85,7 +87,12 @@ class CircuitVisualization(GenericDisplay):
         self._sub_window.set_elided_text(self._animation_blocks[0].state_vector_equation)
 
     def draw_circuit(self, quantum_circuit: qiskit.QuantumCircuit):
-        quantum_circuit.draw("mpl", ax=self._sub_window.widgets.axis, style=MPL_STYLE, fold=-1)
+        display_circuit = quantum_circuit.copy()
+        display_circuit.data = [
+            instr for instr in display_circuit.data
+            if instr.operation.name != "save_statevector"
+        ]
+        display_circuit.draw("mpl", ax=self._sub_window.widgets.axis, style=MPL_STYLE, fold=1000)
         # Now manually change the full figure background
         self._sub_window.widgets.figure.patch.set_facecolor(background_color)  # outer (figure) background
 
@@ -94,7 +101,7 @@ class CircuitVisualization(GenericDisplay):
             ax.set_facecolor(background_color)  # axes background again (optional but safe)
 
         for text in ax.texts:
-            text.set_fontsize(16)
+            text.set_fontsize(12)
 
         self.x_limits = self._sub_window.widgets.axis.get_xlim()
         self.y_limits = self._sub_window.widgets.axis.get_ylim()

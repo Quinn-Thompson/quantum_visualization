@@ -174,17 +174,18 @@ class AnimationBlockSphere(AnimationBlock):
 class PerQubitVisualization(GenericDisplay):
     """The properties of each qubits plot."""
     
-    def __init__(self, axes: Axes, information_input: NDArray, display_properties: Optional[DisplayProperties], figure: Optional[Figure] = None) -> None:
+    def __init__(self, name: str, axes: Axes, information_input: NDArray, display_properties: Optional[DisplayProperties], figure: Optional[Figure] = None) -> None:
         """Initialize the qubits visualization.
 
         Args:
+            name: The register and the qubit number.
             subset_axes: The axis that is being manipulated.
             initial_matrix: The initial mixed state.
             display_properties: The initial display properties.
         """
         super().__init__(axes, information_input, display_properties, figure)
         self._animation_blocks: List[AnimationBlockSphere]
-        
+        self._name = name
         # ugly, but this is the best way to get around locally scoped self issues in iterables
         self.quiver_dict = {
             "state_quiver": None,
@@ -212,6 +213,9 @@ class PerQubitVisualization(GenericDisplay):
             The length of the animation blocks.
         """
         return len(self._animation_blocks)
+        
+    def __str__(self) -> str:
+        return self._name
         
     def initialize_plot(self, information_input: NDArray, display_properties: Optional[DisplayProperties] = None) -> None:
         """Create the matplotlib visualization for the bloch sphere.

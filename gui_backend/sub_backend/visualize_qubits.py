@@ -39,9 +39,16 @@ class VisualizationWrapper():
         # timer must be managed by the wrapper
         self._timer = QTimer()
         self.currently_displayed_index = 0
-        self._next_index_to_display = 0    
+        self._next_index_to_display = 0
+        self.ignore_entanglement = False
+        self.ignore_circuit = False
 
-    def setup_circuit(self, quantum_circuit: qiskit.QuantumCircuit, frames_per_animation: int, display_properties: Optional[DisplayProperties] = None) -> None:
+    def setup_circuit(
+        self, 
+        quantum_circuit: qiskit.QuantumCircuit, 
+        frames_per_animation: int, 
+        display_properties: Optional[DisplayProperties] = None
+    ) -> None:
         """Setup the initial circuit so the window knows how to structure things.
 
         Args:
@@ -52,17 +59,19 @@ class VisualizationWrapper():
         self._maintained_properties.append(display_properties)
         self.func_animation = None
         self.frames_per_animation = frames_per_animation
-        self.entanglement = EntanglementMatrix(
-            self.main_window.sub_window_widgets.entanglement_window.widgets.axis,
-            quantum_circuit, 
-            display_properties,
-            self.main_window.sub_window_widgets.entanglement_window.widgets.figure, 
-        )
-        self.circuit_visual = CircuitVisualization(
-            self.main_window.sub_window_widgets.circuit_window,
-            quantum_circuit,
-            display_properties,
-        )
+        if not self.ignore_entanglement:
+            self.entanglement = EntanglementMatrix(
+                self.main_window.sub_window_widgets.entanglement_window.widgets.axis,
+                quantum_circuit, 
+                display_properties,
+                self.main_window.sub_window_widgets.entanglement_window.widgets.figure, 
+            )
+        if not self.ignore_circuit:
+            self.circuit_visual = CircuitVisualization(
+                self.main_window.sub_window_widgets.circuit_window,
+                quantum_circuit,
+                display_properties,
+            )
         
         num_quantum_registers = len(quantum_circuit.qregs)
         
@@ -72,6 +81,7 @@ class VisualizationWrapper():
             int(np.ceil(np.sqrt(num_quantum_registers))), 
             hspace=0.4
         )
+        self.main_window.sub_window_widgets.bloch_window.widgets.figure.suptitle(quantum_circuit.name, fontsize=16, color='white')
         self.main_window.sub_window_widgets.bloch_window.widgets.figure.patch.set_facecolor(background_color)
         self._quantum_register_grid: Dict[qiskit.QuantumRegister, gridspec.GridSpecFromSubplotSpec] = {}
         self._qubit_subplots: Dict[qiskit.circuit.Qubit, PerQubitVisualization] = {}
@@ -85,6 +95,11 @@ class VisualizationWrapper():
         keep_indices = list(range(len(quantum_circuit.qubits)))
         # create a sub plot for each qubit depending on the register
         for register_number, quantum_register in enumerate(quantum_circuit.qregs):
+            # fake title
+            title_ax = self.main_window.sub_window_widgets.bloch_window.widgets.figure.add_subplot(self.main_grid_layout[register_number])
+            title_ax.set_title(f"Quantum Register: {quantum_register.name}", fontsize=10, pad=24, color="white")
+            title_ax.axis('off')
+            # actual graphs
             qubit_count = len(list(quantum_register))
             square_length = int(np.ceil(np.sqrt(qubit_count)))
             self._quantum_register_grid[quantum_register.name] = gridspec.GridSpecFromSubplotSpec(
@@ -99,8 +114,9 @@ class VisualizationWrapper():
                 traced_out_indices.remove(quantum_circuit.qubits.index(qubit))
                 reduced_state_vector = partial_trace(quantum_vector, traced_out_indices).data
                 self._qubit_subplots[quantum_circuit.qubits.index(qubit)] = PerQubitVisualization(
+                    f"{quantum_register}:{qubit_number}",
                     self.main_window.sub_window_widgets.bloch_window.widgets.figure.add_subplot(
-                        self._quantum_register_grid[quantum_register.name][qubit_number%square_length, qubit_number//square_length], projection='3d',
+                        self._quantum_register_grid[quantum_register.name][qubit_number//square_length, qubit_number%square_length], projection='3d',
                 ), reduced_state_vector, display_properties)
         print("Succeeded Initializing Bloch Spheres")
         self.main_window.sub_window_widgets.bloch_window.widgets.figure.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1)
@@ -121,7 +137,7 @@ class VisualizationWrapper():
         self, 
         quantum_circuit: qiskit.QuantumCircuit, 
         bloch_properties: DisplayProperties,
-        fast_vector: bool = False,
+        fast_vector: bool = True,
         simulator: Optional[AerSimulator] = None,
     ):
         self._maintained_properties.append(bloch_properties)
@@ -133,20 +149,30 @@ class VisualizationWrapper():
             quantum_circuit.save_statevector(label=name)
             simulator = AerSimulator(method='statevector')
 
-            compiled_circuit = qiskit.transpile(quantum_circuit, simulator)
+            # keep initial layout
+            compiled_circuit = qiskit.transpile(
+                quantum_circuit, 
+                simulator,
+                initial_layout=quantum_circuit.qubits,
+                layout_method='trivial',
+                optimization_level=1,
+            )
             result = simulator.run(compiled_circuit).result()
             quantum_vector = result.data(0)[name]
         keep_indices = list(range(len(quantum_circuit.qubits)))
         for qubit in quantum_circuit.qubits:
             traced_out_indices = keep_indices.copy()
             traced_out_indices.remove(quantum_circuit.qubits.index(qubit))
-            print(traced_out_indices)
             reduced_state_vector = partial_trace(quantum_vector, traced_out_indices).data
             self._qubit_subplots[quantum_circuit.qubits.index(qubit)].append_block(
                 reduced_state_vector, bloch_properties
             )
-        self.entanglement.append_block(quantum_circuit, bloch_properties)
-        self.circuit_visual.append_block(quantum_circuit, bloch_properties)
+        if not self.ignore_entanglement:
+            print("Handling Entanglement")
+            self.entanglement.append_block(quantum_circuit, bloch_properties)
+        if not self.ignore_circuit:
+            print("Handling Circuit")
+            self.circuit_visual.append_block(quantum_circuit, bloch_properties)
 
     def _update(self) -> None:
         """Update to the next interpolated visual.
@@ -158,11 +184,13 @@ class VisualizationWrapper():
                 per_qubit_obj.update_plot(interpolation_ratio, self.currently_displayed_index, self._next_index_to_display)
             self.main_window.sub_window_widgets.bloch_window.widgets.bloch_visual_widget.draw_idle()
         if self.main_window.tabs.currentWidget() == self.main_window.sub_window_widgets.entanglement_window or end_animation:
-            self.entanglement.update_plot(interpolation_ratio, self.currently_displayed_index, self._next_index_to_display)
-            self.main_window.sub_window_widgets.entanglement_window.widgets.entanglement_visual_widget.draw_idle()
+            if not self.ignore_entanglement: 
+                self.entanglement.update_plot(interpolation_ratio, self.currently_displayed_index, self._next_index_to_display)
+                self.main_window.sub_window_widgets.entanglement_window.widgets.entanglement_visual_widget.draw_idle()
         if self.main_window.tabs.currentWidget() == self.main_window.sub_window_widgets.circuit_window or end_animation:
-            self.circuit_visual.update_plot(interpolation_ratio, self.currently_displayed_index, self._next_index_to_display)
-            self.main_window.sub_window_widgets.circuit_window.widgets.circuit_visual_widget.draw_idle()
+            if not self.ignore_circuit: 
+                self.circuit_visual.update_plot(interpolation_ratio, self.currently_displayed_index, self._next_index_to_display)
+                self.main_window.sub_window_widgets.circuit_window.widgets.circuit_visual_widget.draw_idle()
 
     def _move_to_next_block(self):
         """Move to next block.
@@ -172,8 +200,10 @@ class VisualizationWrapper():
         """
         for per_qubit_obj in self._qubit_subplots.values():
             per_qubit_obj.next_animation_block(self.currently_displayed_index, self._next_index_to_display)
-        self.entanglement.next_animation_block(self.currently_displayed_index, self._next_index_to_display)
-        self.circuit_visual.next_animation_block(self.currently_displayed_index, self._next_index_to_display)
+        if not self.ignore_entanglement: 
+            self.entanglement.next_animation_block(self.currently_displayed_index, self._next_index_to_display)
+        if not self.ignore_circuit: 
+            self.circuit_visual.next_animation_block(self.currently_displayed_index, self._next_index_to_display)
 
 
     def update_method_to_use(self, update_method: Literal["next", "prev", "x"]):
@@ -184,7 +214,7 @@ class VisualizationWrapper():
         """
         self.currently_displayed_index = self._next_index_to_display
         if update_method == "next":
-            if self._next_index_to_display > self.circuit_visual.animation_block_length - 1:
+            if self._next_index_to_display > list(self._qubit_subplots.values())[0].animation_block_length - 1:
                 return
             self._next_index_to_display += 1
         elif update_method == "prev":

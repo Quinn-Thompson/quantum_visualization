@@ -9,7 +9,7 @@ from gui_backend.helpers import DisplayProperties
 class QuantumCircuitWindow:
     """Wrapper around the window, to handle data."""
 
-    def __init__(self) -> None:
+    def __init__(self, ignore_entanglement: bool = False, ignore_circuit: bool = False) -> None:
         """Initialize the wrapper around the window object for pyqt."""
         # lookup table for classification colors
         self.app = start_application()
@@ -18,6 +18,8 @@ class QuantumCircuitWindow:
         self.window.showMaximized()
         self.circuit_initialized = False
         self.bloch_backend = VisualizationWrapper(self.window)
+        self.bloch_backend.ignore_entanglement = ignore_entanglement
+        self.bloch_backend.ignore_circuit = ignore_circuit
         
     def initialize_circuit_properties(self, quantum_circuit: qiskit.QuantumCircuit, frames_per_animation: int, display_properies: Optional[DisplayProperties] = None) -> None:
         """Wrapper for initializing the displays for the circuits
@@ -30,7 +32,7 @@ class QuantumCircuitWindow:
         self.bloch_backend.setup_circuit(quantum_circuit, frames_per_animation, display_properies)
         self.circuit_initialized = True
         
-    def add_circuit_state(self, quantum_circuit: qiskit.QuantumCircuit, display_properies: DisplayProperties, fast_state: bool = False) -> None:
+    def add_circuit_state(self, quantum_circuit: qiskit.QuantumCircuit, display_properies: DisplayProperties, fast_state: bool = True) -> None:
         """Add a new circuit state that the initial or previous states can move to.
 
         Args:
@@ -45,4 +47,5 @@ class QuantumCircuitWindow:
         """Animate the different displays.
         """
         self.bloch_backend.setup_animation_process()
+        print("Setup Animation")
         
