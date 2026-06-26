@@ -1,0 +1,11 @@
+pyproject.toml
+gui/main_window.py
+gui/sub_widgets/animation_control.py
+gui/sub_widgets/bloch_window.py
+gui_backend/helpers.py
+gui_backend/main_backend.py
+gui_backend/sub_backend/visualize_qubits.py
+quantum_visualization.egg-info/PKG-INFO
+quantum_visualization.egg-info/SOURCES.txt
+quantum_visualization.egg-info/dependency_links.txt
+quantum_visualization.egg-info/top_level.txt
